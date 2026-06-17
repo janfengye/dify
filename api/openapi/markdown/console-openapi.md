@@ -663,7 +663,7 @@ Commit an uploaded file into the Agent App drive under files/<name>
 
 | Name | Located in | Description | Required | Schema |
 | ---- | ---------- | ----------- | -------- | ------ |
-| agent_id | path |  | Yes | string |
+| agent_id | path |  | Yes | string (uuid) |
 
 #### Responses
 
@@ -703,8 +703,8 @@ Commit an uploaded file into the Agent App drive under files/<name>
 | source | query | Filter by all, console/explore, api/service-api, web-app, debugger, openapi, or trigger | No | string |
 | start | query | Start date (YYYY-MM-DD HH:MM) | No | string |
 | status | query | Filter by success, failed, or paused | No | string |
-| agent_id | path |  | Yes | string |
-| conversation_id | path |  | Yes | string |
+| agent_id | path |  | Yes | string (uuid) |
+| conversation_id | path |  | Yes | string (uuid) |
 
 #### Responses
 
@@ -18690,7 +18690,7 @@ Tag type
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
 | message_id | string | Message ID | No |
-| streaming | boolean | Enable streaming response | No |
+| streaming | boolean | Reserved for compatibility; TTS response streaming is determined by the provider output. | No |
 | text | string | Text to convert to audio | No |
 | voice | string | Voice to use for TTS | No |
 
