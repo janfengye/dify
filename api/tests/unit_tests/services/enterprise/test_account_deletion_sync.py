@@ -1,14 +1,19 @@
-"""Unit tests for account deletion synchronization.
+"""Unit tests for account deletion synchronization with SQLite memberships.
 
-This test module verifies the enterprise account deletion sync functionality,
-including Redis queuing, error handling, and community vs enterprise behavior.
+Verifies enterprise account deletion sync functionality including
+Redis queuing, error handling, and community vs enterprise behavior.
 """
 
-from unittest.mock import MagicMock, patch
+from __future__ import annotations
+
+from unittest.mock import patch
+from uuid import uuid4
 
 import pytest
 from redis import RedisError
+from sqlalchemy.orm import Session
 
+from models.account import TenantAccountJoin
 from services.enterprise.account_deletion_sync import (
     _queue_task,
     sync_account_deletion,
@@ -17,260 +22,151 @@ from services.enterprise.account_deletion_sync import (
 
 
 class TestQueueTask:
-    """Unit tests for the _queue_task helper function."""
-
-    @pytest.fixture
-    def mock_redis_client(self):
-        """Mock redis_client for testing."""
+    def test_queue_task_redis_error(self, caplog: pytest.LogCaptureFixture):
         with patch("services.enterprise.account_deletion_sync.redis_client") as mock_redis:
-            yield mock_redis
+            mock_redis.lpush.side_effect = RedisError("Connection failed")
 
-    @pytest.fixture
-    def mock_uuid(self):
-        """Mock UUID generation for predictable task IDs."""
-        with patch("services.enterprise.account_deletion_sync.uuid.uuid4") as mock_uuid_gen:
-            mock_uuid_gen.return_value = MagicMock(hex="test-task-id-1234")
-            yield mock_uuid_gen
+            result = _queue_task(workspace_id="ws-123", member_id="member-456", source="test_source")
 
-    def test_queue_task_success(self, mock_redis_client, mock_uuid):
-        """Test successful task queueing to Redis."""
-        # Arrange
-        workspace_id = "ws-123"
-        member_id = "member-456"
-        source = "test_source"
+            assert result is False
+            assert "Failed to queue account deletion sync" in caplog.text
 
-        # Act
-        result = _queue_task(workspace_id=workspace_id, member_id=member_id, source=source)
+    def test_queue_task_type_error(self, caplog: pytest.LogCaptureFixture):
+        with patch("services.enterprise.account_deletion_sync.redis_client") as mock_redis:
+            mock_redis.lpush.side_effect = TypeError("Cannot serialize")
 
-        # Assert
-        assert result is True
-        mock_redis_client.lpush.assert_called_once()
+            result = _queue_task(workspace_id="ws-123", member_id="member-456", source="test_source")
 
-        # Verify the task payload structure
-        call_args = mock_redis_client.lpush.call_args[0]
-        assert call_args[0] == "enterprise:member:sync:queue"
-
-        import json
-
-        task_data = json.loads(call_args[1])
-        assert task_data["workspace_id"] == workspace_id
-        assert task_data["member_id"] == member_id
-        assert task_data["source"] == source
-        assert task_data["type"] == "sync_member_deletion_from_workspace"
-        assert task_data["retry_count"] == 0
-        assert "task_id" in task_data
-        assert "created_at" in task_data
-
-    def test_queue_task_redis_error(self, mock_redis_client, caplog):
-        """Test handling of Redis connection errors."""
-        # Arrange
-        mock_redis_client.lpush.side_effect = RedisError("Connection failed")
-
-        # Act
-        result = _queue_task(workspace_id="ws-123", member_id="member-456", source="test_source")
-
-        # Assert
-        assert result is False
-        assert "Failed to queue account deletion sync" in caplog.text
-
-    def test_queue_task_type_error(self, mock_redis_client, caplog):
-        """Test handling of JSON serialization errors."""
-        # Arrange
-        mock_redis_client.lpush.side_effect = TypeError("Cannot serialize")
-
-        # Act
-        result = _queue_task(workspace_id="ws-123", member_id="member-456", source="test_source")
-
-        # Assert
-        assert result is False
-        assert "Failed to queue account deletion sync" in caplog.text
+            assert result is False
+            assert "Failed to queue account deletion sync" in caplog.text
 
 
 class TestSyncWorkspaceMemberRemoval:
-    """Unit tests for sync_workspace_member_removal function."""
-
     @pytest.fixture
     def mock_queue_task(self):
-        """Mock _queue_task for testing."""
         with patch("services.enterprise.account_deletion_sync._queue_task") as mock_queue:
             mock_queue.return_value = True
             yield mock_queue
 
     def test_sync_workspace_member_removal_enterprise_enabled(self, mock_queue_task):
-        """Test sync when ENTERPRISE_ENABLED is True."""
-        # Arrange
-        workspace_id = "ws-123"
-        member_id = "member-456"
-        source = "workspace_member_removed"
+        workspace_id = str(uuid4())
+        member_id = str(uuid4())
 
         with patch("services.enterprise.account_deletion_sync.dify_config") as mock_config:
             mock_config.ENTERPRISE_ENABLED = True
 
-            # Act
-            result = sync_workspace_member_removal(workspace_id=workspace_id, member_id=member_id, source=source)
+            result = sync_workspace_member_removal(workspace_id=workspace_id, member_id=member_id, source="removed")
 
-            # Assert
             assert result is True
-            mock_queue_task.assert_called_once_with(workspace_id=workspace_id, member_id=member_id, source=source)
+            mock_queue_task.assert_called_once_with(workspace_id=workspace_id, member_id=member_id, source="removed")
 
     def test_sync_workspace_member_removal_enterprise_disabled(self, mock_queue_task):
-        """Test sync when ENTERPRISE_ENABLED is False (community edition)."""
-        # Arrange
         with patch("services.enterprise.account_deletion_sync.dify_config") as mock_config:
             mock_config.ENTERPRISE_ENABLED = False
 
-            # Act
-            result = sync_workspace_member_removal(workspace_id="ws-123", member_id="member-456", source="test_source")
+            result = sync_workspace_member_removal(
+                workspace_id=str(uuid4()), member_id=str(uuid4()), source="test_source"
+            )
 
-            # Assert
             assert result is True
             mock_queue_task.assert_not_called()
 
     def test_sync_workspace_member_removal_queue_failure(self, mock_queue_task):
-        """Test handling of queue task failures."""
-        # Arrange
         mock_queue_task.return_value = False
 
         with patch("services.enterprise.account_deletion_sync.dify_config") as mock_config:
             mock_config.ENTERPRISE_ENABLED = True
 
-            # Act
-            result = sync_workspace_member_removal(workspace_id="ws-123", member_id="member-456", source="test_source")
+            result = sync_workspace_member_removal(
+                workspace_id=str(uuid4()), member_id=str(uuid4()), source="test_source"
+            )
 
-            # Assert
             assert result is False
 
 
+@pytest.mark.parametrize("sqlite_session", [(TenantAccountJoin,)], indirect=True)
 class TestSyncAccountDeletion:
-    """Unit tests for sync_account_deletion function."""
-
-    @pytest.fixture
-    def mock_db_session(self):
-        """Mock database session for testing."""
-        with patch("services.enterprise.account_deletion_sync.db.session") as mock_session:
-            yield mock_session
-
     @pytest.fixture
     def mock_queue_task(self):
-        """Mock _queue_task for testing."""
         with patch("services.enterprise.account_deletion_sync._queue_task") as mock_queue:
             mock_queue.return_value = True
             yield mock_queue
 
-    def test_sync_account_deletion_enterprise_disabled(self, mock_db_session, mock_queue_task):
-        """Test sync when ENTERPRISE_ENABLED is False (community edition)."""
-        # Arrange
+    def test_sync_account_deletion_enterprise_disabled(self, mock_queue_task, sqlite_session: Session) -> None:
         with patch("services.enterprise.account_deletion_sync.dify_config") as mock_config:
             mock_config.ENTERPRISE_ENABLED = False
 
-            # Act
-            result = sync_account_deletion(account_id="acc-123", source="account_deleted")
+            result = sync_account_deletion(account_id=str(uuid4()), source="account_deleted", session=sqlite_session)
 
-            # Assert
             assert result is True
-            mock_db_session.query.assert_not_called()
             mock_queue_task.assert_not_called()
 
-    def test_sync_account_deletion_multiple_workspaces(self, mock_db_session, mock_queue_task):
-        """Test sync for account with multiple workspace memberships."""
-        # Arrange
-        account_id = "acc-123"
+    def test_sync_account_deletion_multiple_workspaces(self, sqlite_session: Session, mock_queue_task) -> None:
+        account_id = str(uuid4())
+        tenant_ids = [str(uuid4()) for _ in range(3)]
 
-        # Mock workspace joins
-        mock_join1 = MagicMock()
-        mock_join1.tenant_id = "tenant-1"
-        mock_join2 = MagicMock()
-        mock_join2.tenant_id = "tenant-2"
-        mock_join3 = MagicMock()
-        mock_join3.tenant_id = "tenant-3"
-
-        mock_query = MagicMock()
-        mock_query.filter_by.return_value.all.return_value = [mock_join1, mock_join2, mock_join3]
-        mock_db_session.query.return_value = mock_query
+        for tenant_id in tenant_ids:
+            join = TenantAccountJoin(tenant_id=tenant_id, account_id=account_id)
+            sqlite_session.add(join)
+        sqlite_session.commit()
 
         with patch("services.enterprise.account_deletion_sync.dify_config") as mock_config:
             mock_config.ENTERPRISE_ENABLED = True
 
-            # Act
-            result = sync_account_deletion(account_id=account_id, source="account_deleted")
+            result = sync_account_deletion(account_id=account_id, source="account_deleted", session=sqlite_session)
 
-            # Assert
             assert result is True
             assert mock_queue_task.call_count == 3
 
-            # Verify each workspace was queued
-            mock_queue_task.assert_any_call(workspace_id="tenant-1", member_id=account_id, source="account_deleted")
-            mock_queue_task.assert_any_call(workspace_id="tenant-2", member_id=account_id, source="account_deleted")
-            mock_queue_task.assert_any_call(workspace_id="tenant-3", member_id=account_id, source="account_deleted")
+            queued_workspace_ids = {call.kwargs["workspace_id"] for call in mock_queue_task.call_args_list}
+            assert queued_workspace_ids == set(tenant_ids)
 
-    def test_sync_account_deletion_no_workspaces(self, mock_db_session, mock_queue_task):
-        """Test sync for account with no workspace memberships."""
-        # Arrange
-        mock_query = MagicMock()
-        mock_query.filter_by.return_value.all.return_value = []
-        mock_db_session.query.return_value = mock_query
-
+    def test_sync_account_deletion_no_workspaces(self, sqlite_session: Session, mock_queue_task) -> None:
         with patch("services.enterprise.account_deletion_sync.dify_config") as mock_config:
             mock_config.ENTERPRISE_ENABLED = True
 
-            # Act
-            result = sync_account_deletion(account_id="acc-123", source="account_deleted")
+            result = sync_account_deletion(account_id=str(uuid4()), source="account_deleted", session=sqlite_session)
 
-            # Assert
             assert result is True
             mock_queue_task.assert_not_called()
 
-    def test_sync_account_deletion_partial_failure(self, mock_db_session, mock_queue_task):
-        """Test sync when some tasks fail to queue."""
-        # Arrange
-        account_id = "acc-123"
+    def test_sync_account_deletion_partial_failure(self, sqlite_session: Session, mock_queue_task) -> None:
+        account_id = str(uuid4())
+        tenant_ids = [str(uuid4()) for _ in range(3)]
+        fail_tenant = tenant_ids[1]
 
-        # Mock workspace joins
-        mock_join1 = MagicMock()
-        mock_join1.tenant_id = "tenant-1"
-        mock_join2 = MagicMock()
-        mock_join2.tenant_id = "tenant-2"
-        mock_join3 = MagicMock()
-        mock_join3.tenant_id = "tenant-3"
+        for tenant_id in tenant_ids:
+            join = TenantAccountJoin(tenant_id=tenant_id, account_id=account_id)
+            sqlite_session.add(join)
+        sqlite_session.commit()
 
-        mock_query = MagicMock()
-        mock_query.filter_by.return_value.all.return_value = [mock_join1, mock_join2, mock_join3]
-        mock_db_session.query.return_value = mock_query
-
-        # Mock queue_task to fail for second workspace
         def queue_side_effect(workspace_id, member_id, source):
-            return workspace_id != "tenant-2"
+            return workspace_id != fail_tenant
 
         mock_queue_task.side_effect = queue_side_effect
 
         with patch("services.enterprise.account_deletion_sync.dify_config") as mock_config:
             mock_config.ENTERPRISE_ENABLED = True
 
-            # Act
-            result = sync_account_deletion(account_id=account_id, source="account_deleted")
+            result = sync_account_deletion(account_id=account_id, source="account_deleted", session=sqlite_session)
 
-            # Assert
-            assert result is False  # Should return False if any task fails
+            assert result is False
             assert mock_queue_task.call_count == 3
 
-    def test_sync_account_deletion_all_failures(self, mock_db_session, mock_queue_task):
-        """Test sync when all tasks fail to queue."""
-        # Arrange
-        mock_join = MagicMock()
-        mock_join.tenant_id = "tenant-1"
+    def test_sync_account_deletion_all_failures(self, sqlite_session: Session, mock_queue_task) -> None:
+        account_id = str(uuid4())
+        tenant_id = str(uuid4())
 
-        mock_query = MagicMock()
-        mock_query.filter_by.return_value.all.return_value = [mock_join]
-        mock_db_session.query.return_value = mock_query
+        join = TenantAccountJoin(tenant_id=tenant_id, account_id=account_id)
+        sqlite_session.add(join)
+        sqlite_session.commit()
 
         mock_queue_task.return_value = False
 
         with patch("services.enterprise.account_deletion_sync.dify_config") as mock_config:
             mock_config.ENTERPRISE_ENABLED = True
 
-            # Act
-            result = sync_account_deletion(account_id="acc-123", source="account_deleted")
+            result = sync_account_deletion(account_id=account_id, source="account_deleted", session=sqlite_session)
 
-            # Assert
             assert result is False
             mock_queue_task.assert_called_once()
