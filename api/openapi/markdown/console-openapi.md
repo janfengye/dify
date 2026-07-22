@@ -959,6 +959,12 @@ Stop a running Agent App chat message generation
 | ---- | ---------- | ----------- | -------- | ------ |
 | agent_id | path |  | Yes | string (uuid) |
 
+#### Request Body
+
+| Required | Schema |
+| -------- | ------ |
+|  No | **application/json**: [AgentDebugConversationRefreshPayload](#agentdebugconversationrefreshpayload)<br> |
+
 #### Responses
 
 | Code | Description | Schema |
@@ -13906,6 +13912,12 @@ Stable Agent Soul reference to one normalized skill archive.
 | date | string |  | Yes |
 | message_count | integer |  | Yes |
 
+#### AgentDebugConversationRefreshPayload
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| draft_type | [AgentConfigDraftType](#agentconfigdrafttype) | Agent draft surface whose conversation should be refreshed | No |
+
 #### AgentDebugConversationRefreshResponse
 
 | Name | Type | Description | Required |
@@ -22024,6 +22036,7 @@ Model class for provider system configuration response.
 | is_allow_create_workspace | boolean |  | Yes |
 | is_allow_register | boolean |  | Yes |
 | is_email_setup | boolean |  | Yes |
+| knowledge_fs_enabled | boolean |  | Yes |
 | license | [LicenseModel](#licensemodel) |  | Yes |
 | max_plugin_package_size | integer, <br>**Default:** 15728640 |  | Yes |
 | plugin_installation_permission | [PluginInstallationPermissionModel](#plugininstallationpermissionmodel) |  | Yes |
