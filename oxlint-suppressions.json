@@ -5919,7 +5919,7 @@
       "count": 1
     },
     "typescript/no-explicit-any": {
-      "count": 8
+      "count": 6
     }
   },
   "web/service/datasets.ts": {
@@ -6033,11 +6033,6 @@
     }
   },
   "web/service/use-datasource.ts": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "web/service/use-education.ts": {
     "no-restricted-imports": {
       "count": 1
     }
