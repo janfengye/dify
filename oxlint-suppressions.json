@@ -190,9 +190,6 @@
     }
   },
   "web/app/components/app-sidebar/app-info/app-info-modals.tsx": {
-    "jsx_a11y/label-has-associated-control": {
-      "count": 1
-    },
     "no-restricted-imports": {
       "count": 1
     }
@@ -2046,11 +2043,6 @@
   "web/app/components/datasets/chunk.tsx": {
     "jsx_a11y/label-has-associated-control": {
       "count": 2
-    }
-  },
-  "web/app/components/datasets/common/credential-icon.tsx": {
-    "jsx_a11y/alt-text": {
-      "count": 1
     }
   },
   "web/app/components/datasets/common/document-status-with-action/status-with-action.tsx": {
@@ -5403,9 +5395,6 @@
     }
   },
   "web/app/components/workflow/run/output-panel.tsx": {
-    "jsx_a11y/no-noninteractive-tabindex": {
-      "count": 1
-    },
     "typescript/no-explicit-any": {
       "count": 3
     }
