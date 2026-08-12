@@ -6785,7 +6785,7 @@ Check if dataset is in use
 
 | Required | Schema |
 | -------- | ------ |
-|  Yes | **application/json**: [EmailPayload](#emailpayload)<br> |
+|  Yes | **application/json**: [EmailCodeSendPayload](#emailcodesendpayload)<br> |
 
 #### Responses
 
@@ -7891,6 +7891,7 @@ Update account-level Step-by-step Tour state
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
 | 200 | Success | **application/json**: [SimpleDataResponse](#simpledataresponse)<br> |
+| 404 | Customized pipeline template not found |  |
 
 ### [POST] /rag/pipeline/dataset
 #### Request Body
@@ -7939,6 +7940,7 @@ Update account-level Step-by-step Tour state
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
 | 200 | Pipeline template | **application/json**: [PipelineTemplateDetailResponse](#pipelinetemplatedetailresponse)<br> |
+| 404 | Pipeline template not found |  |
 
 ### [GET] /rag/pipelines/datasource-plugins
 #### Responses
@@ -8014,6 +8016,7 @@ Update account-level Step-by-step Tour state
 | Code | Description | Schema |
 | ---- | ----------- | ------ |
 | 200 | Success | **application/json**: [RagPipelineOpaqueResponse](#ragpipelineopaqueresponse)<br> |
+| 404 | Dataset or pipeline not found |  |
 
 ### [POST] /rag/pipelines/{pipeline_id}/customized/publish
 #### Parameters
@@ -8033,6 +8036,7 @@ Update account-level Step-by-step Tour state
 | Code | Description |
 | ---- | ----------- |
 | 204 | Pipeline template published |
+| 404 | Pipeline, workflow, or dataset not found |
 
 ### [GET] /rag/pipelines/{pipeline_id}/exports
 #### Parameters
@@ -17763,6 +17767,14 @@ Portable DSL reference that could not be restored in the target workspace.
 | language | string |  | No |
 | timezone | string |  | No |
 | token | string |  | Yes |
+
+#### EmailCodeSendPayload
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| email | string |  | Yes |
+| language | string |  | No |
+| turnstile_token | string | Cloudflare Turnstile token. Required at runtime for Dify Cloud. | No |
 
 #### EmailPayload
 
