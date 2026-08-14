@@ -1154,6 +1154,10 @@ class OAuthProviderApp(TypeBase):
         server_default=sa.text("'read:name read:email read:avatar read:interface_language read:timezone'"),
         default="read:name read:email read:avatar read:interface_language read:timezone",
     )
+    # First-party apps (e.g. the Dify Marketplace) skip the consent screen.
+    # Default false: self-hosted / EE / newly registered apps keep the
+    # consent-screen behavior.
+    auto_authorize: Mapped[bool] = mapped_column(sa.Boolean, nullable=False, server_default=sa.false(), default=False)
     created_at: Mapped[datetime] = mapped_column(
         sa.DateTime, nullable=False, server_default=func.current_timestamp(), init=False
     )
@@ -2305,7 +2309,7 @@ class Site(Base):
     app_id = mapped_column(StringUUID, nullable=False)
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     icon_type: Mapped[IconType | None] = mapped_column(EnumText(IconType, length=255), nullable=True)
-    icon = mapped_column(String(255))
+    icon: Mapped[str | None] = mapped_column(String(255))
     icon_background = mapped_column(String(255))
     description = mapped_column(LongText)
     default_language: Mapped[str] = mapped_column(String(255), nullable=False)
