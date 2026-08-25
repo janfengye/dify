@@ -146,9 +146,9 @@ Deprecated. Use PATCH /account/profile instead.
 
 #### Responses
 
-| Code | Description |
-| ---- | ----------- |
-| 200 | Success |
+| Code | Description | Schema |
+| ---- | ----------- | ------ |
+| 200 | Success | **application/json**: [EducationActivateResponse](#educationactivateresponse)<br> |
 
 ### [GET] /account/education/autocomplete
 #### Parameters
@@ -12868,7 +12868,7 @@ Import a Skill zip package from multipart form field `file`.
 
 | Required | Schema |
 | -------- | ------ |
-|  Yes | **application/json**: [TriggerSubscriptionBuilderVerifyPayload](#triggersubscriptionbuilderverifypayload)<br> |
+|  Yes | **application/json**: [TriggerSubscriptionVerifyPayload](#triggersubscriptionverifypayload)<br> |
 
 #### Responses
 
@@ -17680,6 +17680,12 @@ Portable DSL reference that could not be restored in the target workspace.
 | institution | string |  | Yes |
 | role | string |  | Yes |
 | token | string |  | Yes |
+
+#### EducationActivateResponse
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| message | string |  | Yes |
 
 #### EducationAutocompleteQuery
 
@@ -23446,6 +23452,12 @@ The identity of the trigger provider
 | properties | object |  | No |
 
 #### TriggerSubscriptionBuilderVerifyPayload
+
+| Name | Type | Description | Required |
+| ---- | ---- | ----------- | -------- |
+| credentials | object |  | No |
+
+#### TriggerSubscriptionVerifyPayload
 
 | Name | Type | Description | Required |
 | ---- | ---- | ----------- | -------- |
