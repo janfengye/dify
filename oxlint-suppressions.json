@@ -1097,11 +1097,6 @@
       "count": 1
     }
   },
-  "web/app/components/base/file-uploader/dynamic-pdf-preview.tsx": {
-    "typescript/no-explicit-any": {
-      "count": 1
-    }
-  },
   "web/app/components/base/file-uploader/file-list-in-log.tsx": {
     "eslint-react/no-missing-key": {
       "count": 1
@@ -1862,11 +1857,6 @@
   },
   "web/app/components/base/search-input/index.tsx": {
     "dify/require-disable-directive-description": {
-      "count": 1
-    }
-  },
-  "web/app/components/base/svg-gallery/index.tsx": {
-    "node-js/prefer-global/buffer": {
       "count": 1
     }
   },
@@ -2673,11 +2663,6 @@
   },
   "web/app/components/header/account-setting/model-provider-page/model-selector/popup-item.tsx": {
     "jsx-a11y/no-static-element-interactions": {
-      "count": 1
-    }
-  },
-  "web/app/components/header/account-setting/model-provider-page/provider-added-card/cooldown-timer.tsx": {
-    "eslint-react/set-state-in-effect": {
       "count": 1
     }
   },
