@@ -1,21 +1,35 @@
-from controllers.openapi.auth.context import Context
+"""The store hands handlers what the route loaded, and nothing else."""
+
+from __future__ import annotations
+
+from collections.abc import Callable
+
+import pytest
+from sqlalchemy.orm import Session
+
+from controllers.openapi.auth.context import Context, RouteContractError
+from models.model import EndUser
+from tests.unit_tests.controllers.openapi.auth._world import make_ctx
+
+READERS: dict[str, Callable[[Context], object]] = {
+    "app": lambda ctx: ctx.app,
+    "workspace": lambda ctx: ctx.workspace,
+    "workspace_role": lambda ctx: ctx.workspace_role,
+    "caller": lambda ctx: ctx.caller,
+    "account": lambda ctx: ctx.account,
+    "end_user": lambda ctx: ctx.end_user,
+}
 
 
-def test_context_starts_unpopulated():
-    ctx = Context(required_scope="apps:run")
-    assert ctx.bearer_token is None
-    assert ctx.path_params == {}
-    assert ctx.subject_type is None
-    assert ctx.subject_email is None
-    assert ctx.account_id is None
-    assert ctx.scopes == frozenset()
-    assert ctx.app is None
-    assert ctx.tenant is None
-    assert ctx.caller is None
-    assert ctx.caller_kind is None
+@pytest.mark.parametrize("read", READERS.values(), ids=READERS.keys())
+def test_an_unloaded_slot_is_an_error_not_a_fetch(sqlite_session: Session, read: Callable[[Context], object]) -> None:
+    ctx = make_ctx(sqlite_session)
+    with pytest.raises(RouteContractError, match="was not loaded"):
+        read(ctx)
 
 
-def test_context_fields_are_mutable():
-    ctx = Context(required_scope="apps:run")
-    ctx.scopes = frozenset({"full"})
-    assert "full" in ctx.scopes
+def test_the_caller_is_read_as_what_it_is(sqlite_session: Session) -> None:
+    ctx = make_ctx(sqlite_session)
+    ctx._caller = EndUser()
+    with pytest.raises(RouteContractError, match="not the Account"):
+        _ = ctx.account

@@ -1,68 +1,90 @@
-"""Mutable per-request context for the openapi auth pipeline.
+"""What the request resolved, and nothing else: no fetching, no checking, no
+opinion about the shape of the request. `loaders.py` fills a slot once; the
+properties hand handlers the non-optional value, and raise when no requirement
+on the route loaded it, so a handler can never fetch its way past a missing
+declaration.
 
-Every field starts None / empty and is filled in by a step. The pipeline
-is the only thing that should construct or mutate Context — handlers
-read populated values via the decorator's kwargs unpacking.
-
-Context is intentionally decoupled from Flask's ``Request``: the pipeline
-guard extracts whatever transport-level inputs the steps need (bearer
-token, path params) at the boundary and writes them into Context fields,
-so steps stay testable without a request object and won't leak coupling
-to a specific framework.
+A subject resolves its caller through the loaders, so the import of `Subject`
+here is type-only: a runtime one would close the cycle
+`context` -> `subjects` -> `loaders` -> `context`.
 """
 
 from __future__ import annotations
 
-import uuid
 from collections.abc import Mapping
-from contextvars import Token
 from dataclasses import dataclass, field
-from datetime import datetime
-from typing import TYPE_CHECKING, Literal, Protocol
+from typing import TYPE_CHECKING
 
-from werkzeug.exceptions import Unauthorized
+from sqlalchemy.orm import Session
 
-from libs.oauth_bearer import AuthContext, Scope, SubjectType
+from models.account import Account, Tenant, TenantAccountRole
+from models.model import App, EndUser
 
 if TYPE_CHECKING:
-    from models import App, Tenant
+    from controllers.openapi.auth.subjects import Subject
+
+type Caller = Account | EndUser
+
+
+class RouteContractError(LookupError):
+    """A route's declarations and its code disagree: a handler read a slot no
+    requirement loaded, read the caller as a type the route does not admit, or
+    a requirement asked for a path parameter the route does not carry. Never
+    caught on purpose - it only ever means an endpoint was wired wrong.
+    """
 
 
 @dataclass
 class Context:
-    required_scope: Scope
-    bearer_token: str | None = None
-    path_params: Mapping[str, str] = field(default_factory=dict)
-    subject_type: SubjectType | None = None
-    subject_email: str | None = None
-    subject_issuer: str | None = None
-    account_id: uuid.UUID | None = None
-    scopes: frozenset[Scope] = field(default_factory=frozenset)
-    token_id: uuid.UUID | None = None
-    token_hash: str | None = None
-    cached_verified_tenants: dict[str, bool] | None = None
-    source: str | None = None
-    expires_at: datetime | None = None
-    app: App | None = None
-    tenant: Tenant | None = None
-    caller: object | None = None
-    caller_kind: Literal["account", "end_user"] | None = None
-    auth_ctx_reset_token: Token[AuthContext] | None = None
+    subject: Subject
+    session: Session
+    view_args: Mapping[str, str]
+    _app: App | None = field(default=None, init=False)
+    _workspace: Tenant | None = field(default=None, init=False)
+    _workspace_role: TenantAccountRole | None = field(default=None, init=False)
+    _caller: Caller | None = field(default=None, init=False)
 
     @property
-    def must_tenant(self) -> Tenant:
-        if not self.tenant:
-            raise Unauthorized("tenant is not associated")
-        return self.tenant
+    def app(self) -> App:
+        return _loaded(self._app, "app")
 
     @property
-    def must_subject_type(self) -> SubjectType:
-        if not self.subject_type:
-            raise Unauthorized("subject_type unset — BearerCheck did not run")
-        return self.subject_type
+    def workspace(self) -> Tenant:
+        return _loaded(self._workspace, "workspace")
+
+    @property
+    def workspace_role(self) -> TenantAccountRole:
+        return _loaded(self._workspace_role, "workspace_role")
+
+    @property
+    def caller(self) -> Caller:
+        # Spelled out: a generic over `T | None` would widen the union to its base.
+        if self._caller is None:
+            raise _missing("caller")
+        return self._caller
+
+    @property
+    def account(self) -> Account:
+        return _narrowed(self.caller, Account)
+
+    @property
+    def end_user(self) -> EndUser:
+        return _narrowed(self.caller, EndUser)
 
 
-class Step(Protocol):
-    """One responsibility. Mutate ctx or raise to short-circuit."""
+def _loaded[T](value: T | None, name: str) -> T:
+    if value is None:
+        raise _missing(name)
+    return value
 
-    def __call__(self, ctx: Context) -> None: ...
+
+def _missing(name: str) -> RouteContractError:
+    return RouteContractError(f"{name} was not loaded: no requirement on this route asked for it")
+
+
+def _narrowed[C: Caller](caller: Caller, expected: type[C]) -> C:
+    if not isinstance(caller, expected):
+        raise RouteContractError(
+            f"the caller is a {type(caller).__name__}, not the {expected.__name__} this handler reads"
+        )
+    return caller
