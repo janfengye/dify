@@ -44,13 +44,7 @@ const setup = async (overrides: Partial<CreateAppModalProps> = {}) => {
   return { onConfirm, onHide }
 }
 
-const getAppIconTrigger = (): HTMLElement => {
-  const nameInput = screen.getByPlaceholderText('app.newApp.appNamePlaceholder')
-  const iconRow = nameInput.parentElement
-  const iconTrigger = iconRow?.firstElementChild
-  if (!(iconTrigger instanceof HTMLElement)) throw new Error('Failed to locate app icon trigger')
-  return iconTrigger
-}
+const getAppIconTrigger = () => screen.getByRole('button', { name: 'app.iconPicker.title' })
 
 const openAppIconPicker = () => {
   fireEvent.click(getAppIconTrigger())
@@ -252,9 +246,29 @@ describe('CreateAppModal', () => {
       expect(onHide).toHaveBeenCalledTimes(1)
     })
 
-    it('does not submit while the visible confirmation action is disabled', async () => {
-      const { onConfirm, onHide } = await setup({ confirmDisabled: true })
-      expect(screen.getByRole('button', { name: /common\.operation\.create/ })).toBeDisabled()
+    it('submits instead of opening the icon picker when Mod+Enter starts on its trigger', async () => {
+      const { onConfirm } = await setup()
+      const iconTrigger = getAppIconTrigger()
+      iconTrigger.focus()
+
+      fireEvent.keyDown(iconTrigger, { key: 'Enter', ctrlKey: true })
+      fireEvent.keyUp(iconTrigger, { key: 'Enter', ctrlKey: true })
+      await act(async () => {
+        vi.advanceTimersByTime(300)
+      })
+
+      expect(onConfirm).toHaveBeenCalledTimes(1)
+      expect(screen.queryByRole('dialog', { name: 'app.iconPicker.title' })).not.toBeInTheDocument()
+    })
+
+    it.each([
+      { state: 'disabled', props: { confirmDisabled: true } },
+      { state: 'loading', props: { confirmLoading: true } },
+    ])('does not submit while the visible confirmation action is $state', async ({ props }) => {
+      const { onConfirm, onHide } = await setup(props)
+      const action = screen.getByRole('button', { name: /common\.operation\.create/ })
+      if (props.confirmLoading) expect(action).toHaveAttribute('aria-disabled', 'true')
+      else expect(action).toBeDisabled()
       submitWithKeyboard()
       await act(async () => {
         vi.advanceTimersByTime(300)
