@@ -55,7 +55,7 @@ const getAppIconTrigger = (): HTMLElement => {
 const openAppIconPicker = () => {
   fireEvent.click(getAppIconTrigger())
 
-  return screen.getByRole('dialog', { name: 'app.iconPicker.emoji' })
+  return screen.getByRole('dialog', { name: 'app.iconPicker.title' })
 }
 
 function render(ui: ReactElement) {
@@ -82,6 +82,33 @@ describe('CreateAppModal', () => {
     deploymentEdition = 'COMMUNITY'
     mockPlanType = 'team'
     mockAppCount = 1
+  })
+
+  it.each([
+    { appIconType: null, appIcon: null, appIconBackground: null },
+    {
+      appIconType: 'link' as const,
+      appIcon: 'https://example.com/icon.png',
+      appIconBackground: null,
+    },
+  ])('preserves the existing icon when editing other fields: %j', async (iconProps) => {
+    const user = userEvent.setup()
+    const { onConfirm } = await setup({ isEditModal: true, ...iconProps })
+
+    await user.clear(screen.getByPlaceholderText('app.newApp.appNamePlaceholder'))
+    await user.type(screen.getByPlaceholderText('app.newApp.appNamePlaceholder'), 'Renamed app')
+    await user.click(screen.getByRole('button', { name: /common\.operation\.save/ }))
+
+    await waitFor(() =>
+      expect(onConfirm).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Renamed app',
+          icon_type: iconProps.appIconType,
+          icon: iconProps.appIcon,
+          icon_background: iconProps.appIconBackground,
+        }),
+      ),
+    )
   })
 
   describe('Rendering', () => {
@@ -307,6 +334,20 @@ describe('CreateAppModal', () => {
   })
 
   describe('App Icon Picker', () => {
+    it('does not fill a missing background when the picker is cancelled', async () => {
+      const { onConfirm } = await setup({ appIconBackground: undefined })
+      openAppIconPicker()
+      await userEvent.setup().keyboard('{Escape}')
+      await waitFor(() =>
+        expect(
+          screen.queryByRole('dialog', { name: 'app.iconPicker.title' }),
+        ).not.toBeInTheDocument(),
+      )
+      fireEvent.click(screen.getByRole('button', { name: /common\.operation\.create/ }))
+      await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce())
+      expect(onConfirm.mock.calls[0]![0].icon_background).toBeUndefined()
+    })
+
     it('should open and close the picker when Escape is pressed', async () => {
       await setup({
         appIconType: 'image',
@@ -317,14 +358,14 @@ describe('CreateAppModal', () => {
       const pickerDialog = openAppIconPicker()
 
       expect(
-        within(pickerDialog).getByRole('button', { name: 'app.iconPicker.tryYourLuck' }),
+        within(pickerDialog).getByRole('tabpanel', { name: 'app.iconPicker.image' }),
       )!.toBeInTheDocument()
 
       await userEvent.setup().keyboard('{Escape}')
 
       await waitFor(() => {
         expect(
-          screen.queryByRole('dialog', { name: 'app.iconPicker.emoji' }),
+          screen.queryByRole('dialog', { name: 'app.iconPicker.title' }),
         ).not.toBeInTheDocument()
       })
     })
@@ -338,6 +379,7 @@ describe('CreateAppModal', () => {
 
       const pickerDialog = openAppIconPicker()
 
+      fireEvent.click(within(pickerDialog).getByRole('tab', { name: 'app.iconPicker.emoji' }))
       fireEvent.click(await within(pickerDialog).findByRole('gridcell', { name: 'Grinning face' }))
 
       fireEvent.click(within(pickerDialog).getByRole('button', { name: 'app.iconPicker.ok' }))
@@ -365,7 +407,9 @@ describe('CreateAppModal', () => {
 
         const pickerDialog = openAppIconPicker()
 
-        fireEvent.click(within(pickerDialog).getByRole('button', { name: '#F3FEE7' }))
+        fireEvent.click(
+          within(pickerDialog).getByRole('radio', { name: 'app.iconPicker.color.green' }),
+        )
         fireEvent.click(within(pickerDialog).getByRole('button', { name: 'app.iconPicker.ok' }))
 
         fireEvent.click(screen.getByRole('button', { name: /common\.operation\.create/ }))
@@ -439,7 +483,7 @@ describe('CreateAppModal', () => {
       expect(onConfirm.mock.calls[0]![0]).toMatchObject({ description: 'Updated description' })
     })
 
-    it('should omit icon_background when submitting with image icon', async () => {
+    it('preserves the existing null background when submitting an unchanged image icon', async () => {
       const { onConfirm } = await setup({
         appIconType: 'image',
         appIcon: 'file-123',
@@ -457,7 +501,7 @@ describe('CreateAppModal', () => {
         icon_type: 'image',
         icon: 'file-123',
       })
-      expect(payload.icon_background).toBeUndefined()
+      expect(payload.icon_background).toBeNull()
     })
 
     it('should include max_active_requests and updated answer icon when saving', async () => {
