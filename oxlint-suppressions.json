@@ -748,11 +748,6 @@
       "count": 1
     }
   },
-  "web/app/components/base/chat/chat/chat-input-area/index.tsx": {
-    "dify/require-disable-directive-description": {
-      "count": 1
-    }
-  },
   "web/app/components/base/chat/chat/check-input-forms-hooks.ts": {
     "typescript/no-explicit-any": {
       "count": 1
@@ -1936,11 +1931,6 @@
     }
   },
   "web/app/components/explore/try-app/preview/basic-app-preview.tsx": {
-    "typescript/no-explicit-any": {
-      "count": 2
-    }
-  },
-  "web/app/components/goto-anything/actions/commands/command-bus.ts": {
     "typescript/no-explicit-any": {
       "count": 2
     }
@@ -4113,11 +4103,6 @@
       "count": 1
     }
   },
-  "web/features/agent-v2/agent-detail/configure/components/preview/chat-session.tsx": {
-    "dify/require-disable-directive-description": {
-      "count": 1
-    }
-  },
   "web/features/agent-v2/agent-detail/configure/components/preview/working-directory-panel.tsx": {
     "@tanstack/query/prefer-query-options": {
       "count": 4
@@ -4184,11 +4169,6 @@
   "web/hooks/use-mitt.ts": {
     "typescript/no-explicit-any": {
       "count": 2
-    }
-  },
-  "web/hooks/use-oauth.ts": {
-    "typescript/no-explicit-any": {
-      "count": 1
     }
   },
   "web/hooks/use-pay.tsx": {
