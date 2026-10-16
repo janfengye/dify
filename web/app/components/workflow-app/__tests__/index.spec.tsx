@@ -7,7 +7,6 @@ import { createQueryClientWrapper } from '@/test/console/query-client'
 import { seedAppDetail } from '@/test/console/query-data'
 import { render as renderWithConsoleState } from '@/test/console/render'
 import { createAppDetailFixture } from '@/test/fixtures/app'
-import { AppModeEnum } from '@/types/app'
 import { AppACLPermission } from '@/utils/permission'
 import WorkflowApp from '../index'
 
@@ -126,9 +125,12 @@ vi.mock('@/service/log', () => ({
   fetchRunDetail: (...args: unknown[]) => mockFetchRunDetail(...args),
 }))
 
-vi.mock('@/service/use-tools', () => ({
-  useAppTriggers: () => appTriggersState,
-}))
+vi.mock('@tanstack/react-query', async (importOriginal) => {
+  const { mockConsoleOperationHooks } = await import('@/test/console/operation-hooks')
+  return mockConsoleOperationHooks(await importOriginal(), {
+    'apps.byAppId.triggers.get': () => appTriggersState,
+  })
+})
 
 vi.mock('../hooks/use-workflow-init', () => ({
   useWorkflowInit: () => workflowInitState,
@@ -229,7 +231,7 @@ describe('WorkflowApp', () => {
     mockIsWorkflowDataLoaded = true
     appDetail = createAppDetailFixture({
       id: 'app-1',
-      mode: AppModeEnum.WORKFLOW,
+      mode: 'workflow' as const,
       permission_keys: [AppACLPermission.TestAndRun],
     })
     workflowInitState = {
@@ -359,7 +361,7 @@ describe('WorkflowApp', () => {
     searchParamsValue = 'run-1'
     appDetail = createAppDetailFixture({
       id: 'app-1',
-      mode: AppModeEnum.WORKFLOW,
+      mode: 'workflow' as const,
       permission_keys: [AppACLPermission.ViewLayout],
     })
 

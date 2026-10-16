@@ -182,14 +182,14 @@ vi.mock('../../../../../hooks/use-workflow-history', async (importOriginal) => {
 vi.mock('@/app/components/workflow/hooks-store', () => ({
   useHooksStore: (
     selector: (state: {
-      configsMap: { flowId: string; flowType: string }
+      configsMap: { flowId: string; resourceKind: string }
       accessControl: { canRun: boolean }
     }) => unknown,
   ) =>
     selector({
       configsMap: {
         flowId: 'flow-1',
-        flowType: 'app',
+        resourceKind: 'app',
       },
       accessControl: {
         canRun: mockCanRun,
@@ -207,11 +207,14 @@ vi.mock('@/app/components/workflow/run/hooks', () => ({
   useLogs: () => mockLogsState,
 }))
 
-vi.mock('@/service/use-tools', () => ({
-  useAllBuiltInTools: () => ({
-    data: mockBuiltInTools,
-  }),
-}))
+vi.mock('@tanstack/react-query', async (importOriginal) => {
+  const { mockConsoleOperationHooks } = await import('@/test/console/operation-hooks')
+  return mockConsoleOperationHooks(await importOriginal(), {
+    'workspaces.current.tools.builtin.get': () => ({
+      data: mockBuiltInTools,
+    }),
+  })
+})
 
 vi.mock('@/service/use-triggers', () => ({
   useAllTriggerPlugins: () => ({

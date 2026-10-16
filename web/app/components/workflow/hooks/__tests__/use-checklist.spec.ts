@@ -14,8 +14,6 @@ import { createElement, Fragment } from 'react'
 import { CollectionType } from '@/app/components/tools/types'
 import { consoleQuery } from '@/service/console'
 import { createAppDetailFixture } from '@/test/fixtures/app'
-import { AppModeEnum } from '@/types/app'
-import { FlowType } from '@/types/common'
 import { createEdge, createNode, resetFixtureCounters } from '../../__tests__/fixtures'
 import { resetReactFlowMockState, rfState } from '../../__tests__/reactflow-mock-state'
 import { renderWorkflowComponent, renderWorkflowHook } from '../../__tests__/workflow-test-env'
@@ -59,13 +57,6 @@ vi.mock('reactflow', async () => {
     }),
   }
 })
-
-vi.mock('@/service/use-tools', () => ({
-  useAllBuiltInTools: () => ({ data: toolServiceState.buildInTools }),
-  useAllCustomTools: () => ({ data: toolServiceState.customTools }),
-  useAllMCPTools: () => ({ data: toolServiceState.mcpTools }),
-  useAllWorkflowTools: () => ({ data: toolServiceState.workflowTools }),
-}))
 
 vi.mock('@/service/use-plugins', () => ({
   useFetchPluginsInMarketPlaceByInfo: (infos: Array<{ organization: string; plugin: string }>) => ({
@@ -323,12 +314,9 @@ function buildInlineAgentGraph({
     nodes: [startNode, agentNode],
     options: {
       queryClient,
+      resource: { kind: 'app' as const, appId, mode: 'workflow' as const },
       hooksStoreProps: {
-        configsMap: {
-          flowId: appId,
-          flowType: FlowType.appFlow,
-          fileSettings: {} as never,
-        },
+        fileSettings: {} as never,
       },
     },
   }
@@ -555,14 +543,14 @@ describe('useChecklist', () => {
 
     const edges = [createEdge({ source: 'start', target: 'llm' })]
 
-    renderWorkflowHook(() =>
-      useChecklist([startNode, llmNode], edges, { flowType: FlowType.snippet }),
-    )
+    renderWorkflowHook(() => useChecklist([startNode, llmNode], edges), {
+      resource: { kind: 'snippet', snippetId: 'snippet-1' },
+    })
 
     expect(checkValid).toHaveBeenCalledWith(
       expect.objectContaining({ type: BlockEnum.LLM }),
       expect.any(Function),
-      expect.objectContaining({ flowType: FlowType.snippet }),
+      expect.objectContaining({ resourceKind: 'snippet' }),
     )
   })
 
@@ -853,7 +841,8 @@ describe('useWorkflowRunValidation', () => {
 
 vi.mock('@tanstack/react-query', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-query')>()
-  return {
+  const { mockConsoleOperationHooks } = await import('@/test/console/operation-hooks')
+  const reactQuery = {
     ...actual,
     useQuery: (options: {
       queryKey: OperationKey<
@@ -863,7 +852,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => {
       select?: (data: AppDetailWithSite) => unknown
     }) => {
       if (options.queryKey[0].join('.') === 'console.apps.byAppId.get') {
-        const appDetail = createAppDetailFixture({ mode: AppModeEnum.WORKFLOW })
+        const appDetail = createAppDetailFixture({ mode: 'workflow' as const })
         return { data: options.select ? options.select(appDetail) : appDetail }
       }
       if (options.queryKey[0].includes('modelProviders') && options.queryKey[0].includes('summary'))
@@ -871,5 +860,11 @@ vi.mock('@tanstack/react-query', async (importOriginal) => {
       if (!options.queryKey[0].includes('modelTypes')) return actual.useQuery(options)
       return { data: [] }
     },
-  }
+  } as typeof actual
+  return mockConsoleOperationHooks(reactQuery, {
+    'workspaces.current.tools.builtin.get': () => ({ data: toolServiceState.buildInTools }),
+    'workspaces.current.tools.api.get': () => ({ data: toolServiceState.customTools }),
+    'workspaces.current.tools.mcp.get': () => ({ data: toolServiceState.mcpTools }),
+    'workspaces.current.tools.workflow.get': () => ({ data: toolServiceState.workflowTools }),
+  })
 })

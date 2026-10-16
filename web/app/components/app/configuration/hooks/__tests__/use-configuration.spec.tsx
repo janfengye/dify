@@ -12,9 +12,18 @@ import { seedAppDetail } from '@/test/console/query-data'
 import { renderHook as renderHookWithConsoleState } from '@/test/console/render'
 import { createAppDetailFixture, createAppModelConfigFixture } from '@/test/fixtures/app'
 import { createTestQueryClient } from '@/test/query-client'
-import { AppModeEnum, ModelModeType } from '@/types/app'
+import { ModelModeType } from '@/types/app'
 import { AppACLPermission } from '@/utils/permission'
 import { useConfiguration } from '../use-configuration'
+
+vi.mock('@tanstack/react-query', async (importOriginal) => {
+  const { mockConsoleOperationHooks } = await import('@/test/console/operation-hooks')
+  return mockConsoleOperationHooks(await importOriginal(), {
+    'files.upload.get': () => ({
+      data: undefined,
+    }),
+  })
+})
 
 let mockAppPermissionKeys: string[] = [AppACLPermission.Edit, AppACLPermission.ReleaseAndVersion]
 
@@ -24,7 +33,7 @@ const createRouteAppDetail = (overrides: Partial<AppDetailWithSite> = {}) =>
     model_config: createAppModelConfigFixture({
       updated_at: 1710000000,
     }),
-    mode: AppModeEnum.CHAT,
+    mode: 'chat' as const,
     permission_keys: mockAppPermissionKeys,
     ...overrides,
   })
@@ -110,12 +119,6 @@ vi.mock('nuqs', async (importOriginal) => {
   return { ...actual, useQueryState: () => [null, mockSetSettingsDestination] }
 })
 
-vi.mock('@/service/use-common', () => ({
-  useFileUploadConfig: () => ({
-    data: undefined,
-  }),
-}))
-
 vi.mock('@/hooks/use-breakpoints', () => ({
   __esModule: true,
   default: () => 'desktop',
@@ -191,6 +194,7 @@ vi.mock('@/service/console', async () => {
     ...actual,
     consoleQuery: {
       ...actual.consoleQuery,
+      files: actual.consoleQuery.files,
       account: actual.consoleQuery.account,
       apps: {
         byAppId: {
@@ -252,7 +256,7 @@ describe('useConfiguration', () => {
     vi.mocked(consoleClient.apps.byAppId.modelConfig.post).mockResolvedValue(undefined as never)
     mockFetchAppDetailDirect.mockResolvedValue({
       deleted_tools: [],
-      mode: AppModeEnum.CHAT,
+      mode: 'chat' as const,
       model_config: createAppModelConfigFixture({
         prompt_type: 'advanced',
         chat_prompt_config: {
@@ -675,7 +679,7 @@ describe('useConfiguration', () => {
     mockCurrentModelFeatures = ['vision', 'document', 'audio', 'video']
     mockFetchAppDetailDirect.mockResolvedValueOnce({
       deleted_tools: [],
-      mode: AppModeEnum.CHAT,
+      mode: 'chat' as const,
       model_config: createAppModelConfigFixture({
         prompt_type: 'simple',
         chat_prompt_config: { prompt: [] },
@@ -788,7 +792,7 @@ describe('useConfiguration', () => {
     })
     mockFetchAppDetailDirect.mockResolvedValueOnce({
       deleted_tools: [],
-      mode: AppModeEnum.CHAT,
+      mode: 'chat' as const,
       model_config: createAppModelConfigFixture({
         prompt_type: 'simple',
         chat_prompt_config: { prompt: [] },
