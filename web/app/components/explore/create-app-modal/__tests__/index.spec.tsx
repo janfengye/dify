@@ -79,6 +79,19 @@ describe('CreateAppModal', () => {
     mockAppCount = 1
   })
 
+  it('names the app controls separately and associates the answer icon switch with its label and description', async () => {
+    const user = userEvent.setup()
+    await setup({ isEditModal: true })
+
+    const group = screen.getByRole('group', { name: 'app.newApp.captionName' })
+    expect(within(group).getByRole('textbox', { name: 'app.newApp.name' })).toHaveValue('Test App')
+    expect(within(group).getByRole('button', { name: 'app.iconPicker.title' })).toBeEnabled()
+    const answerIcon = screen.getByRole('switch', { name: 'app.answerIcon.title' })
+    expect(answerIcon).toHaveAccessibleDescription('app.answerIcon.descriptionInExplore')
+    await user.click(screen.getByText('app.answerIcon.title'))
+    expect(answerIcon).toBeChecked()
+  })
+
   it.each([
     { appIconType: null, appIcon: null, appIconBackground: null },
     {
@@ -559,6 +572,7 @@ describe('CreateAppModal', () => {
 })
 
 it('edits an existing app without waiting for application quota data', async () => {
+  const user = userEvent.setup()
   const onConfirm = vi.fn()
   renderWithConsoleQuery(
     <CreateAppModal
@@ -575,7 +589,7 @@ it('edits an existing app without waiting for application quota data', async () 
   )
   const save = screen.getByRole('button', { name: /operation.save/ })
   expect(save).toBeEnabled()
-  await userEvent.setup().click(save)
+  await user.click(save)
   await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce())
 })
 
