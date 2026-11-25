@@ -3602,6 +3602,8 @@ export default interface Resources {
     'results.title': 'Test Details'
     title: 'Evaluation'
     unavailableUntilPublished: 'Publish first to set up evaluation.'
+    'upgradePreview.description': 'Upgrade to a Professional or Team plan to configure metrics and run batch tests on your own data.'
+    'upgradePreview.title': "You're previewing Evaluation with sample data"
   }
   explore: {
     'appCard.try': 'Details'
@@ -3701,7 +3703,7 @@ export default interface Resources {
     'scanner.lastTested': 'Last tested {{time}}'
     'scanner.loadFailed': 'The scanners could not be loaded.'
     'scanner.neverTested': 'Not tested yet'
-    'scanner.readOnly': 'Only workspace owners and admins can manage scanners.'
+    'scanner.readOnly': "You don't have permission to manage scanners."
     'scanner.status.active': 'Active'
     'scanner.status.error': 'Error'
     'scanner.test': 'Test'
