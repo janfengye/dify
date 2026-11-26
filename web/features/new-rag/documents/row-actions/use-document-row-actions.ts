@@ -111,7 +111,7 @@ export function useRenameDocumentAction(document: LogicalDocument) {
   const knowledgeSpaceId = useAtomValue(documentsKnowledgeSpaceIdAtom)
   const { mutateAsync: renameDocument } = useMutation(
     consoleQuery.knowledgeFs.spaces.byControlSpaceId.documents.byDocumentId.patch.mutationOptions({
-      context: { silent: true },
+      meta: { errorToast: false },
     }),
   )
 
@@ -156,13 +156,11 @@ export function useDownloadDocumentAction(
   const { begin, busy, finish, pending } = useDocumentActionLock(document.id, 'download')
   const knowledgeSpaceId = useAtomValue(documentsKnowledgeSpaceIdAtom)
   const { mutateAsync: downloadDocument } = useMutation({
+    meta: { errorToast: false },
     mutationFn: () =>
-      consoleClient.knowledgeFs.spaces.byControlSpaceId.logicalDocuments.byDocumentId.download.get(
-        {
-          params: { control_space_id: knowledgeSpaceId, document_id: document.id },
-        },
-        { context: { silent: true } },
-      ),
+      consoleClient.knowledgeFs.spaces.byControlSpaceId.logicalDocuments.byDocumentId.download.get({
+        params: { control_space_id: knowledgeSpaceId, document_id: document.id },
+      }),
   })
 
   const run = useCallback(async () => {
@@ -207,7 +205,7 @@ export function useToggleDocumentAvailabilityAction(
   const { invalidateDocuments, knowledgeSpaceId } = useDocumentInvalidation()
   const { mutateAsync: toggleDocument } = useMutation(
     consoleQuery.knowledgeFs.spaces.byControlSpaceId.logicalDocuments.byDocumentId.patch.mutationOptions(
-      { context: { silent: true } },
+      { meta: { errorToast: false } },
     ),
   )
 
@@ -260,7 +258,7 @@ export function useRemoveDocumentAction() {
     reset,
   } = useMutation(
     consoleQuery.knowledgeFs.spaces.byControlSpaceId.logicalDocuments.byDocumentId.delete.mutationOptions(
-      { context: { silent: true } },
+      { meta: { errorToast: false } },
     ),
   )
 
@@ -307,7 +305,7 @@ export function useRetryDocumentTaskAction(
   const { invalidateDocumentsAndTasks, knowledgeSpaceId } = useDocumentInvalidation()
   const { mutateAsync: retryTask } = useMutation(
     consoleQuery.knowledgeFs.spaces.byControlSpaceId.backgroundTasks.byTaskKind.byTaskId.retry.post.mutationOptions(
-      { context: { silent: true } },
+      { meta: { errorToast: false } },
     ),
   )
 
@@ -361,10 +359,10 @@ export function useReindexDocumentAction(document: LogicalDocument, status: Docu
   const ensureModelReady = useSetAtom(ensureDocumentModelReadyAtom)
   const onWriteDenied = useSetAtom(denyDocumentWriteAtom)
   const { begin, busy, finish, pending } = useDocumentActionLock(document.id, 'reindex')
-  const { invalidateDocumentsAndTasks, knowledgeSpaceId } = useDocumentInvalidation()
+  const knowledgeSpaceId = useAtomValue(documentsKnowledgeSpaceIdAtom)
   const { mutateAsync: reindexDocument } = useMutation(
     consoleQuery.knowledgeFs.spaces.byControlSpaceId.documents.reindex.post.mutationOptions({
-      context: { silent: true },
+      meta: { errorToast: false },
     }),
   )
 
@@ -388,7 +386,6 @@ export function useReindexDocumentAction(document: LogicalDocument, status: Docu
             : t(($) => $.documentsReindexFailed, { ns: 'knowledgeDocuments' }),
         )
       } else toast.success(t(($) => $.documentsReindexStarted, { ns: 'knowledgeDocuments' }))
-      invalidateDocumentsAndTasks()
       return true
     } catch (error) {
       if (getHttpErrorStatus(error) === 403) onWriteDenied()
@@ -410,7 +407,6 @@ export function useReindexDocumentAction(document: LogicalDocument, status: Docu
     document.id,
     ensureModelReady,
     finish,
-    invalidateDocumentsAndTasks,
     knowledgeSpaceId,
     onWriteDenied,
     reindexDocument,
